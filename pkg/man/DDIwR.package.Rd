@@ -25,8 +25,8 @@ Seventh Framework Programme (FP7/2007-2013) under grant agreement no. 262608
     \tabular{ll}{
     Package: \tab DDIwR\cr
     Type:    \tab Package\cr
-    Version: \tab 0.1-0\cr
-    Date:    \tab 2014-07-30\cr
+    Version: \tab 0.2-0\cr
+    Date:    \tab 2014-08-10\cr
     License: \tab GPL (>= 2)\cr
     }
 }

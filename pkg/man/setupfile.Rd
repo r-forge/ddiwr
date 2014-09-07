@@ -17,7 +17,7 @@ setupfile(lbls = "", type = "all", csv = "", miss, trymiss = FALSE, uniqueid = "
   \item{lbls}{The list object containing the variable and value labels as separate
               components, or a path to the directory where these objects are located,
               for batch processing.}
-  \item{type}{The type of setup file, can be one of: "SPSS", "Stata", "SAS", "R",
+  \item{type}{The type of setup file, can be: "SPSS", "Stata", "SAS", "R",
               or "all" (default).}
   \item{csv}{The original dataset, on the basis of which the SPSS setup file
              commands are created, or a path to the directory where the .csv files
@@ -110,9 +110,9 @@ A setup file to complement the imported raw dataset.
 
 
 \examples{
-fancyname <- list()
+test <- list()
 
-fancyname$varlab <- list(
+test$varlab <- list(
 "ID" = "Questionnaire ID",
 "V1" = "Label for the first variable",
 "V2" = "Label for the second variable",
@@ -120,14 +120,14 @@ fancyname$varlab <- list(
 )
 
 
-fancyname$vallab$V1 <- c(
+test$vallab$V1 <- c(
 "No"             =  0, 
 "Yes"            =  1,
 "Not answered"   = -1
 )
 
 
-fancyname$vallab$V2 <- c(
+test$vallab$V2 <- c(
 "Verry little"   =  1, 
 "Little"         =  2,
 "So, so"         =  3,
@@ -139,7 +139,7 @@ fancyname$vallab$V2 <- c(
 )
 
 
-fancyname$vallab$V3 <- c(
+test$vallab$V3 <- c(
 "No"             =  0, 
 "Yes"            =  1,
 "Not answered"   = -1
@@ -155,25 +155,26 @@ fancyname$vallab$V3 <- c(
 
 ##### then run these commands
 ###
-# setupfile(fancyname, trymiss = TRUE, uniqueid = "ID")
+# path.to.csv <- file.path(system.file(package = "DDIwR"), "data", "test.csv.gz")
+# setupfile(test, trymiss = TRUE, csv = path.to.csv, uniqueid = "ID")
 
 
-# setupfile(fancyname, type="Stata", SD=";")
+# setupfile(test, csv = path.to.csv, type="Stata", SD=";")
 
 
 ##### other types of possible utilizations, using paths to specific files
 ###
-# setupfile("/path/to/the/metadata/file.xml", csv="/path/to/the/csv/file.csv")
+# setupfile("/path/to/the/metadata/file.xml", csv="/path/to/csv/file.csv")
 
 
 ##### if the metadata is saved to an .R file containing a list
 ###
-# setupfile("/path/to/the/metadata/file.R", csv="/path/to/the/csv/file.csv")
+# setupfile("/path/to/the/metadata/file.R", csv="/path/to/csv/file.csv")
 
 
 ##### or in batch mode, specifying entire directories
 ###
-# setupfile("/path/to/the/metadata/directory", csv="/path/to/the/csv/directory")
+# setupfile("/path/to/the/metadata/directory", csv="/path/to/csv/directory")
 
 }
 

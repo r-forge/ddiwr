@@ -74,6 +74,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 }
                 else {
                     cat("\nNOTE:", csvlist)
+                          # since "csvlist" is now an error message from treatPath()
                 }
             }
             else {
@@ -139,28 +140,16 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                     
                     for (j in seq(length(position))) {
                         
-                        if (csvext[position[j]] == "CSV") {
-                            csvreadfile <- read.csv(file.path(datadir, csvfiles[position[j]]), as.is=TRUE)
+                        if (csvext[position[j]] %in% c("CSV", "CSV.GZ")) {
                             
+                            delimiter <- getDelimiter(file.path(datadir, csvfiles[position[j]]), type=csvext[position[j]])
                             
-                            # if the delimiter is not a comma, there will be only one big column
-                            if (ncol(csvreadfile) == 1) { # try ";" separated
-                                delimiter <- ";"
-                                csvreadfile <- read.csv(file.path(datadir, csvfiles[position[j]]), sep=";", as.is=TRUE)
-                            }
-                            
-                            # if still the delimiter is not the right one
-                            if (ncol(csvreadfile) == 1) { # try tab separated
-                                delimiter <- "\t"
-                                csvreadfile <- read.csv(file.path(datadir, csvfiles[position[j]]), sep="\t", as.is=TRUE)
-                            }
-                            
-                            # finally, if it's still not the right delimiter stop and print an error message
-                            if (ncol(csvreadfile) == 1) {
-                                cat("\n")
+                            if (delimiter == "unknown") {
                                 stop(paste("Unknown column separator for the file", csvfiles[position[j]],
                                            "\nShould be either \",\" or \";\" or tab separated.\n\n"), call. = FALSE)
                             }
+                            
+                            csvreadfile <- read.csv(file.path(datadir, csvfiles[position[j]]), sep=delimiter, as.is=TRUE)
                             
                             
                             if (!xmlfiles) {
@@ -261,7 +250,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
     
     if (!(type %in% c("SPSS", "Stata", "SAS", "R", "all"))) {
         cat("\n")
-        stop("The argument <type> can only be one of: \"SPSS\", \"Stata\", \"SAS\", \"R\", or \"all\".\n\n", call. = FALSE)
+        stop("The argument <type> can only be: \"SPSS\", \"Stata\", \"SAS\", \"R\", or \"all\".\n\n", call. = FALSE)
     }
     
     enter <- getEnter(OS=OS)
@@ -305,8 +294,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                            "\nShould be either \",\" or \";\" or tab separated.\n\n"), call. = FALSE)
             }
             
-            cat("\n")
-            cat("Found \"", csvlist$files[1], "\" in the directory \"", csvlist$completePath, "\". Using that as the .csv file.\n\n", sep="")
+            # cat("\n")
+            # cat("Found \"", csvlist$files[1], "\" in the directory \"", csvlist$completePath, "\". Using that as the .csv file.\n\n", sep="")
             
             csv <- csvreadfile
         }
@@ -926,43 +915,45 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         setwd(file.path("Setup files", "SAS"))
         sink(ifelse(length(grep("\\.sas", outfile)) > 0, outfile, paste(outfile, ".sas", sep="")))
         
-        cat("* ------------------------------------------------------------------------------", enter, enter,
-            "* --- CONFIGURATION SECTION - START ---", enter, enter, enter, sep="")                                            
+        cat("* ------------------------------------------------------------------------------ ;", enter, enter,
+            "* --- CONFIGURATION SECTION - START ---                                          ;", enter, enter, enter, sep="")                                            
 
         if (formats) {
-            cat("* The following command should contain the complete path and", enter,
-                "* name of the .csv file to be read (e.g. \"C:/CIS2008/Data/ALL.csv\")", enter,
-                "* Change CSV_DATA_PATH to your filename, below;", enter, enter,
+            cat("* The following command should contain the complete path and                     ;", enter,
+                "* name of the .csv file to be read (e.g. \"C:/CIS2008/Data/ALL.csv\")              ;", enter,
+                "* Change CSV_DATA_PATH to your filename, below                                   ;", enter, enter,
                 "FILENAME csvpath \"CSV_DATA_PATH\";", enter, enter, enter, sep="")
                       
-           # cat("* It is assumed the data file was created under Windows (end of line is CRLF)", enter,
-           #     "* If the csv file was created under Unix,  change eol=LF", enter,
+           # cat("* It is assumed the data file was created under Windows (end of line is CRLF);", enter,
+           #     "* If the csv file was created under Unix,  change eol=LF;", enter,
            #     "* If the csv file was created under MacOS, change eol=CR below;", enter, enter,
            #     "%LET eol=CRLF;", enter, enter, enter, sep="")
         }
         
-        cat("* The following command should contain the complete path of the", enter,
-            "* directory where the setup file will be saved (e.g. \"C:/CIS2008/Data\")", enter,
-            "* Change SAS_DATA_FOLDER to your directory name, below;", enter, enter,
+        cat("* The following command should contain the complete path of the                  ;", enter,
+            "* directory where the setup file will be saved (e.g. \"C:/CIS2008/Data\")          ;", enter,
+            "* Change SAS_DATA_FOLDER to your directory name, below                           ;", enter, enter,
             "LIBNAME dirout \"SAS_DATA_FOLDER\";", enter, enter, enter, sep="")
                   
-        cat("* The following command should contain the name of the output SAS file only", enter,
-            "* (without quotes, and without the .sas7bdat extension)", enter,
-            "* Change SAS_FILE_NAME to your output file name, below;", enter, enter,
+        cat("* The following command should contain the name of the output SAS file only      ;", enter,
+            "* (without quotes, and without the .sas7bdat extension)                          ;", enter,
+            "* Change SAS_FILE_NAME to your output file name, below                           ;", enter, enter,
             "%LET sasfile=SAS_FILE_NAME;", enter, enter, enter,
-            "* --- CONFIGURATION SECTION -  END ---", enter, enter,
-            "* ------------------------------------------------------------------------------", enter, enter, enter, enter,
-            "* There should be nothing to change below this line", enter,
+            "* --- CONFIGURATION SECTION -  END ---                                           ;", enter, enter,
+            "* ------------------------------------------------------------------------------ ;", enter, enter, enter, enter,
+            "* There should be nothing to change below this line;", enter,
             "* ------------------------------------------------------------------------------ ;", enter, enter, enter, enter, sep="")
         
         if (formats) {
-            cat("* --- Read the raw data file --- ;", enter, enter,
+            cat("* --- Read the raw data file ---                                                 ;", enter, enter,
                 "DATA sasimport;", enter, enter,
                 "INFILE csvpath", enter,
                 "       DLM=", ifelse(delimiter == "\t", "'09'X", paste("\"", delimiter, "\"", sep="")), enter,
                 "       FIRSTOBS=2", enter,
                 # "       TERMSTR=&eol", enter,
                 "       DSD", enter,
+                "       TRUNCOVER", enter,
+                "       LRECL=512", enter,
                 "       ;", enter, enter,
                 
                 "INPUT  ", sasformats[1], toupper(csvnames[1]), enter, sep="")
@@ -977,7 +968,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         }
         
         if (any(unlist(stringvars))) {
-            cat("* --- Recode string variables which have labels, to numeric variables --- ;", enter, enter,
+            cat("* --- Recode string variables which have labels, to numeric variables ---        ;", enter, enter,
                 "DATA sasimport;", enter, enter,
                 "    SET sasimport;", enter, enter, sep="")
             
@@ -1002,15 +993,15 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             cat("RUN;", enter, enter,
                 "* ------------------------------------------------------------------------------ ;", enter, enter, enter,
                 
-                "/* --- Reorder the variables in the original positions --- ;", enter, enter,
+                "* --- Reorder the variables in the original positions ---                        ;", enter, enter,
                 "DATA sasimport;", enter, enter,
-                "    RETAIN ", splitrows(names(intrnlbls2$varlab), enter, 70, "           "), ";", enter, enter,
+                "    RETAIN ", gsub(",", "", splitrows(names(intrnlbls2$varlab), enter, 70, "           ")), ";", enter, enter,
                 "    SET sasimport;", enter, enter,
                 "RUN;", enter, enter,
-                "* ------------------------------------------------------------------------------ ;*/", enter, enter, enter, sep="")
+                "* ------------------------------------------------------------------------------ ;", enter, enter, enter, sep="")
         }
         
-        cat("* --- Add variable labels --- ;", enter, enter,
+        cat("* --- Add variable labels ---                                                    ;", enter, enter,
             "DATA sasimport;", enter, enter,
             "    SET sasimport;", enter, enter, sep="")
         
@@ -1021,7 +1012,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         cat(enter, "RUN;", enter, enter,
             "* ------------------------------------------------------------------------------ ;", enter, enter, enter, sep="")
         
-        cat("* --- Create value labels groups --- ;", enter, enter,
+        cat("* --- Create value labels groups ---                                             ;", enter, enter,
             "PROC FORMAT;", enter, enter, sep="")
         
         for (i in seq(length(uniqueList))) {
@@ -1036,7 +1027,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         cat("RUN;", enter, enter,
             "* ------------------------------------------------------------------------------ ;", enter, enter, enter, sep="")
         
-        cat("* --- Format variables with value labels --- ;", enter, enter,
+        cat("* --- Format variables with value labels ---                                     ;", enter, enter,
             "DATA sasimport;", enter, enter,
             "    SET sasimport;", enter, enter, "    FORMAT", enter, sep="")
         
@@ -1051,7 +1042,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             "* ------------------------------------------------------------------------------ ;", enter, enter, enter, sep="")
         
                       
-        cat("* --- Save data to a sas type file --- ;", enter, enter,
+        cat("* --- Save data to a sas type file ---                                           ;", enter, enter,
             "DATA dirout.&sasfile;", enter, enter,
             "    SET sasimport;", enter, enter,
             "RUN;", enter, sep="")
@@ -1109,6 +1100,9 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 "# ------------------------------------------------------------------------------",
                 enter, enter, enter, enter, sep="")
         }
+        else {
+            cat("# \"rdatafile\" should be an R data.frame (usually read from a .csv file)\n\n")
+        }
         
         
         if (any(unlist(stringvars))) {
@@ -1153,10 +1147,10 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             "# ------------------------------------------------------------------------------",
             enter, enter, enter, enter,
             "# --- Set the value labels attribute --- ", enter, enter,
-            "attr(rdatafile, \"value labels\") <- vector(mode=\"list\", length=", length(uList), ")", enter, enter,
-            "names(attr(rdatafile, \"value labels\")) <- c(", enter, 
-            splitrows(paste("\"", uList, "\"", sep=""), enter, 80), enter,
-            ")", enter, enter, sep="")
+            "attr(rdatafile, \"value labels\") <- vector(mode=\"list\", length=", length(uList), ")", enter, enter, sep="")
+            # "names(attr(rdatafile, \"value labels\")) <- c(", enter, 
+            # splitrows(paste("\"", uList, "\"", sep=""), enter, 80), enter,
+            # ")", enter, enter, sep="")
         
         contor <- 1
         
@@ -1193,9 +1187,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             enter, enter, enter, enter, sep="")
         
         
-        
-        
-        if (!missing(miss) & uniqueid != "") {
+        printMISSING <- FALSE
+        if (!missing(miss) & uniqueid != "" & is.data.frame(csv)) {
             
             if (is.numeric(miss)) {
                 missvars <- lapply(intrnlbls2$vallab, function(x) !is.na(match(miss, x)))
@@ -1249,13 +1242,15 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             "# ------------------------------------------------------------------------------",
             enter, enter, enter, enter, sep="")
         }
-        
-        print(names(stringvars)[unlist(stringvars)])
+        else if (!missing(miss) & (uniqueid == "" | is.data.frame(csv))) {
+            printMISSING <- TRUE
+        }
         
         cat("# --- Save the R data file --- ", enter, enter,
             "rfilename <- unlist(strsplit(basename(rdatapath), split=\"\\\\.\"))[1]", enter,
+            "rdatapath <- file.path(dirname(rdatapath), paste(rfilename, \".Rdata\", sep=\"\"))", enter,
             "assign(rfilename, rdatafile)", enter,
-            "eval(parse(text = paste(\"save(\", rfilename, \", file=\\\"\", rdatapath, \"\\\")\", sep=\"\")))",
+            "eval(parse(text = paste(\"save(\", rfilename, \", file=rdatapath)\", sep=\"\")))",
             enter, enter, enter,
             "# ------------------------------------------------------------------------------",
             enter, enter, enter, enter,
@@ -1274,6 +1269,11 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         
         # finish writing and close the .R file
         sink()
+        
+        if (printMISSING) {
+            # this would be printed on the screen
+            cat("The \"csv\" and \"uniqueid\" arguments are both mandatory to produce R missing values commands.\n\n")
+        }
                 
         setwd(currentdir)
         

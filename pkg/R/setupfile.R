@@ -141,15 +141,19 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                     for (j in seq(length(position))) {
                         
                         if (csvext[position[j]] %in% c("CSV", "CSV.GZ")) {
+                                                                                                   # delimiter is already set from the function's formal argument
+                            csvreadfile <- read.csv(file.path(datadir, csvfiles[position[j]]), sep = delimiter, header = TRUE, as.is = TRUE)
                             
-                            delimiter <- getDelimiter(file.path(datadir, csvfiles[position[j]]), type=csvext[position[j]])
-                            
-                            if (delimiter == "unknown") {
-                                stop(paste("Unknown column separator for the file", csvfiles[position[j]],
-                                           "\nShould be either \",\" or \";\" or tab separated.\n\n"), call. = FALSE)
+                            if (ncol(csvreadfile) == 1) {
+                                delimiter <- getDelimiter(file.path(datadir, csvfiles[position[j]]), type=csvext[position[j]])
+                                
+                                if (delimiter == "unknown") {
+                                    stop(paste("Unknown column separator for the file", csvfiles[position[j]],
+                                               "\nShould be either \",\" or \";\" or tab separated.\n\n"), call. = FALSE)
+                                }
+                                
+                                csvreadfile <- read.csv(file.path(datadir, csvfiles[position[j]]), sep = delimiter, header = TRUE, as.is = TRUE)
                             }
-                            
-                            csvreadfile <- read.csv(file.path(datadir, csvfiles[position[j]]), sep=delimiter, as.is=TRUE)
                             
                             
                             if (!xmlfiles) {
@@ -217,6 +221,9 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         return(invisible())
     }
     
+    
+    
+    
     csvlist <- NULL # initialization
     if (all(is.character(csv))) {
         if (all(csv != "")) {
@@ -261,6 +268,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
     formats <- FALSE
     
     csv_is_df <- is.data.frame(csv)
+    
     csv_is_path <- FALSE
     if (length(csv) == 1) { # csv is a character vector of length 1, i.e. a path 
         if (is.character(csv)) {
@@ -273,25 +281,19 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
     if (csv_is_df | csv_is_path) {
         
         if (!is.null(csvlist)) {
-            csvreadfile <- read.csv(file.path(csvlist$completePath, csvlist$files[1]), as.is=TRUE)
+                                                                                           # delimiter is already set from the function's formal argument
+            csvreadfile <- read.csv(file.path(csvlist$completePath, csvlist$files[1]), sep = delimiter, header = TRUE, as.is=TRUE)
             
-            # if the delimiter is not a comma, there will be only one big column
-            if (ncol(csvreadfile) == 1) { # try ";" separated
-                delimiter <- ";"
-                csvreadfile <- read.csv(file.path(csvlist$completePath, csvfiles[position[j]]), sep=";", as.is=TRUE)
-            }
-            
-            # if still the delimiter is not the right one
-            if (ncol(csvreadfile) == 1) { # try tab separated
-                delimiter <- "\t"
-                csvreadfile <- read.csv(file.path(csvlist$completePath, csvfiles[position[j]]), sep="\t", as.is=TRUE)
-            }
-            
-            # finally, if it's still not the right delimiter stop and print an error message
             if (ncol(csvreadfile) == 1) {
-                cat("\n")
-                stop(paste("Unknown column separator for the file", csvfiles[position[j]],
-                           "\nShould be either \",\" or \";\" or tab separated.\n\n"), call. = FALSE)
+            
+                delimiter <- getDelimiter(file.path(csvlist$completePath, csvlist$files[1]), type=csvlist$fileext[1])
+                
+                if (delimiter == "unknown") {
+                    stop(paste("Unknown column separator for the file", csvlist$files[1],
+                               "\nShould be either \",\" or \";\" or tab separated.\n\n"), call. = FALSE)
+                }
+                
+                csvreadfile <- read.csv(file.path(csvlist$completePath, csvlist$files[1]), sep = delimiter, header = TRUE, as.is=TRUE)
             }
             
             # cat("\n")
@@ -364,10 +366,9 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 
                 tempvar <- csv[, csvnames[i]]
                 
-                if (is.factor(tempvar)) {
-                    templevels <- levels(tempvar)
+                if (is.character(tempvar)) {
                     tempvar <- as.character(tempvar)
-                    if ("." %in% templevels) {
+                    if (any(tempvar == ".")) {
                         tempvar[tempvar == "."] <- NA
                         printNOTE <- TRUE
                     }
@@ -382,6 +383,12 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                         vartype <- "string"
                         gofurther <- FALSE
                         maxvarchar <- max(maxvarchar, nchar(intrnlbls$vallab[[toupper(csvnames[i])]]))
+                    }
+                }
+                else {
+                    # check if the variable contains letters
+                    if (any(grepl("[[:alpha:]]", tempvar))) {
+                        vartype <- "string"
                     }
                 }
                 

@@ -145,7 +145,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                             csvreadfile <- read.csv(file.path(datadir, csvfiles[position[j]]), sep = delimiter, header = TRUE, as.is = TRUE)
                             
                             if (ncol(csvreadfile) == 1) {
-                                delimiter <- getDelimiter(file.path(datadir, csvfiles[position[j]]), type=csvext[position[j]])
+                                delimiter <- getDelimiter(file.path(datadir, csvfiles[position[j]]))
                                 
                                 if (delimiter == "unknown") {
                                     stop(paste("Unknown column separator for the file", csvfiles[position[j]],
@@ -286,7 +286,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             
             if (ncol(csvreadfile) == 1) {
             
-                delimiter <- getDelimiter(file.path(csvlist$completePath, csvlist$files[1]), type=csvlist$fileext[1])
+                delimiter <- getDelimiter(file.path(csvlist$completePath, csvlist$files[1]))
                 
                 if (delimiter == "unknown") {
                     stop(paste("Unknown column separator for the file", csvlist$files[1],
@@ -634,20 +634,24 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             
             msngs <- unique(unlist(missvals))
             
+            withmiss2 <- which(withmiss)
+            
             if(length(missvals) > 0) {
                 uniqueMissList <- list()
                 for (i in seq(length(missvals))) {
-                    vars <- unlist(lapply(intrnlbls2$vallab[withmiss], function(x) {
-                        y <- missvals[[i]]
-                        x <- x[x %in% msngs]
-                        return(length(y) == length(x) & all(y %in% x))
-                    }))
-                    uniqueMissList[[i]] <- names(vars)[vars]
+                    vars <- NULL
+                    for (j in withmiss2) {
+                        y <- intrnlbls2$vallab[[j]][missvars[[j]]]
+                        if (all(y %in% missvals[[i]])) {
+                            vars <- c(vars, names(intrnlbls2$vallab)[j])
+                        }
+                    }
+                    uniqueMissList[[i]] <- vars
                 }
                 
                 cat("* --- Add missing values --- ", enter, enter,
                     "MISSING VALUES", enter, sep="")
-                
+                    
                 for (i in seq(length(uniqueMissList))) {
                     if (length(missvals[[i]]) < 4) {
                         cat(splitrows(uniqueMissList[[i]], enter, 80))

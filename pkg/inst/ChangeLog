@@ -4,6 +4,9 @@ Version 0.2-0
     o improved SAS setup file (thanks to Alexandre Kych)
     o the package now reads both ".csv" and ".csv.gz" files
     o new internal function getDelimiter() to try identifying the .csv column separator
+    o fixed a small bug preventing the identification and formatting of string variables
+      in SPSS
+    o fixed a bug dealing with missing values for SPSS setup files
 
 Version 0.1-0
     o R and SAS versions are now produced, in addition to SPSS and Stata

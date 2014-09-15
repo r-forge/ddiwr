@@ -655,7 +655,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 for (i in seq(length(uniqueMissList))) {
                     if (length(missvals[[i]]) < 4) {
                         cat(splitrows(uniqueMissList[[i]], enter, 80))
-                        cat(" (", paste(missvals[[i]], collapse=", ") , ") .", sep="")
+                        cat(" (", paste(missvals[[i]], collapse=", ") , ")", sep="")
                     }
                     else {
                         absrange <- abs(range(missvals[[i]]))
@@ -663,7 +663,6 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                         if (all(missvals[[i]] < 0)) {
                             cat(splitrows(uniqueMissList[[i]], enter, 80))
                             cat(" (LOWEST THRU ", max(missvals[[i]]) , ")", sep="")
-                            cat(ifelse(i == length(uniqueMissList), " .", ""))
                         }
                         else {
                             # check if the missing values range doesn't contain any other (non-missing) values
@@ -704,11 +703,11 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                             }
                             else {
                                 cat(splitrows(uniqueMissList[[i]], enter, 80))
-                                cat(" (", min(missvals[[i]]), " TO ", max(missvals[[i]]) , ")", sep="")  
-                                cat(ifelse(i == length(uniqueMissList), " .", ""))
+                                cat(" (", min(missvals[[i]]), " TO ", max(missvals[[i]]) , ")", sep="") 
                             }
                         }
                     }
+                    cat(ifelse(i == length(uniqueMissList), " .", ""))
                     cat(enter)
                 }
                 cat(enter, enter, sep="")

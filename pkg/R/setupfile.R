@@ -367,8 +367,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 tempvar <- csv[, csvnames[i]]
                 
                 if (is.character(tempvar)) {
-                    tempvar <- as.character(tempvar)
-                    if (any(tempvar == ".")) {
+                    vartype <- "string"
+                    if (any(tempvar == ".")) { # Stata type empty cells
                         tempvar[tempvar == "."] <- NA
                         printNOTE <- TRUE
                     }
@@ -381,43 +381,27 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 if (toupper(csvnames[i]) %in% names(intrnlbls$vallab)) {
                     if (is.character(intrnlbls$vallab[[toupper(csvnames[i])]])) {
                         vartype <- "string"
-                        gofurther <- FALSE
+                        # gofurther <- FALSE
                         maxvarchar <- max(maxvarchar, nchar(intrnlbls$vallab[[toupper(csvnames[i])]]))
                     }
                 }
-                else {
-                    # check if the variable contains letters
-                    if (any(grepl("[[:alpha:]]", tempvar))) {
-                        vartype <- "string"
-                    }
-                }
                 
-                if (gofurther) {
-                    if (all(is.na(csv[, csvnames[i]]))) { # completely empty variable
-                        maxvarchar <- 1
-                    }
-                    else {
-                        
-                        # if (length(tryCatch(cc <- as.numeric(as.character(tempvar)), warning = function(x) {return(0)})) == nrowscsv) { # numeric variable
-                        if (is.numeric(tempvar)) {
-                            if (max(tempvar, na.rm = TRUE) - floor(max(tempvar, na.rm = TRUE)) > 0) { # has decimals
-                                decimals <- TRUE
-                            }
-                            else {
-                                if (toupper(csvnames[i]) %in% names(intrnlbls$vallab)) {
-                                    if (is.numeric(intrnlbls$vallab[[toupper(csvnames[i])]])) {
-                                        maxvarchar <- max(maxvarchar, nchar(length(intrnlbls$vallab[[toupper(csvnames[i])]])))
-                                    }
-                                }
-                            }
-                        }
-                        else { # string variable
-                            vartype <- "string"
-                        }
-                    }
+                if (all(is.na(tempvar))) { # completely empty variable
+                    vartype <- "missing"
                 }
                 
                 if (vartype == "numeric") {
+                    if (max(tempvar, na.rm = TRUE) - floor(max(tempvar, na.rm = TRUE)) > 0) { # has decimals
+                        decimals <- TRUE
+                    }
+                    else {
+                        if (toupper(csvnames[i]) %in% names(intrnlbls$vallab)) {
+                            if (is.numeric(intrnlbls$vallab[[toupper(csvnames[i])]])) {
+                                maxvarchar <- max(maxvarchar, nchar(length(intrnlbls$vallab[[toupper(csvnames[i])]])))
+                            }
+                        }
+                    }
+                    
                     if (decimals) {
                         csvformats[i] <- paste("F", maxvarchar, ".2", sep="")
                     }
@@ -429,13 +413,16 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                     sasformats[i] <- "$"
                     csvformats[i] <- paste("A", maxvarchar, sep="")
                 }
+                else { # all the values are missing
+                    csvformats[i] <- paste("F1.0", sep="")
+                }
                 
                 varcheck[i] <- 1
             }
             
             if (printNOTE) {
-                cat("    NOTE: some of the variables in this file have a \".\" sign to represent a missing.\n")
-                cat("    The import of the .csv file will not work for other softwares than SPSS.\n\n")
+                cat("    NOTE: some variable(s) in this file have a \".\" sign to represent a missing.\n")
+                cat("    The .csv file might not import properly in some software.\n\n")
             }
             
             formats <- all(csvformats != "")

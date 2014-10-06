@@ -512,6 +512,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 " /FILE=csvpath", enter,
                 " /DELCASE=LINE", enter,
                 " /DELIMITERS=\"", ifelse(delimiter == "\t", "\\t", delimiter), "\"", enter,
+                " /QUALIFIER='\"'", enter,
                 " /ARRANGEMENT=DELIMITED", enter,
                 " /FIRSTCASE=2", enter,
                 " /IMPORTCASE=ALL", enter,

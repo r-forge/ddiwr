@@ -5,6 +5,9 @@ getMetadata <- function(xmlpath, OS = "windows", saveFile=FALSE, ...) {
     
     
     other.args <- list(...)
+    if (OS == "") {
+        OS <- Sys.info()[['sysname']]
+    }
     enter <- getEnter(OS=OS)
     
     fromsetupfile <- FALSE
@@ -14,7 +17,7 @@ getMetadata <- function(xmlpath, OS = "windows", saveFile=FALSE, ...) {
     
     tp <- treatPath(xmlpath, type="XML")
     
-    currdir <- getwd()
+    currentdir <- getwd()
     # if (saveFile) {
         setwd(tp$completePath)
     # }
@@ -131,14 +134,16 @@ getMetadata <- function(xmlpath, OS = "windows", saveFile=FALSE, ...) {
                     }
                 }
             }
-            cat(enter)
+            if (saveFile) {
+                cat(enter)
+            }
         }
         if (saveFile) {
             sink()
         }
     }
     
-    setwd(currdir)
+    setwd(currentdir)
     if (singlefile) {
         return(invisible(metadata))
     }

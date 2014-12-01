@@ -46,6 +46,11 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 xmlfiles <- TRUE
             }
         }
+        else if (length(labelist$fileext) == 1) {
+            if (labelist$fileext == "XML") {
+                xmlfiles <- TRUE
+            }
+        }
         
         if (!file.exists("Setup files")) {
             dir.create("Setup files")
@@ -118,6 +123,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         for (i in seq(length(labelist$files))) {
             
             if (xmlfiles) {
+                # cat("bla")
                 intrnlblsObject <- getMetadata(file.path(labelist$completePath, labelist$files[i]), fromsetupfile = TRUE, saveFile = saveFile)
             }
             else {
@@ -130,6 +136,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 bb <- ls()
                 bb <- bb[-which(bb == "aa")]
             }
+            
+            currentdir <- getwd()
             
             if (csvdatadir) {
                 
@@ -159,9 +167,13 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                             if (!xmlfiles) {
                                 intrnlblsObject <- get(setdiff(bb, aa))
                             }
+                            
                             tryCatch(Recall(intrnlblsObject, type = type, miss = miss, csv = csvreadfile, trymiss = trymiss, uniqueid = uniqueid, SD = SD,
                                             delimiter = delimiter, OS = OS, outfile = labelist$filenames[i], pathIsFolder = pathIsFolder, ... = ...),
                                 error = function(x) {
+                                    # if no sink() is needed, an invisible warning message will be returned
+                                    tryCatch(sink(), warning=function(y) return(invisible(y)))
+                                    setwd(currentdir)
                                     cat(paste("     There is an error associated with the file \"", labelist$filenames[i], "\", see below:\n     ", sep=""))
                                     cat(as.character(x))
                                 })
@@ -176,6 +188,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                     tryCatch(Recall(intrnlblsObject, type = type, miss = miss, trymiss = trymiss, uniqueid = uniqueid, SD = SD, 
                                     delimiter = delimiter, OS = OS, outfile = labelist$filenames[i], pathIsFolder = pathIsFolder, ... = ...),
                         error = function(x) {
+                            tryCatch(sink(), warning=function(y) return(invisible(y)))
+                            setwd(currentdir)
                             cat(paste("     There is an error associated with the file \"", labelist$filenames[i], "\", see below:\n     ", sep=""))
                             cat(as.character(x))
                         })
@@ -192,6 +206,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                         tryCatch(Recall(intrnlblsObject, type = type, miss = miss, csv = csv, trymiss = trymiss, uniqueid = uniqueid, SD = SD,
                                         delimiter = delimiter, OS = OS, outfile = labelist$filenames[i], pathIsFolder = pathIsFolder, ... = ...),
                         error = function(x) {
+                            tryCatch(sink(), warning=function(y) return(invisible(y)))
+                            setwd(currentdir)
                             cat(paste("     There is an error associated with the file \"", labelist$filenames[i], "\", see below:\n     ", sep=""))
                             cat(as.character(x))
                         })
@@ -205,6 +221,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                         tryCatch(Recall(intrnlblsObject, type = type, miss = miss, trymiss = trymiss, uniqueid = uniqueid, SD = SD, 
                                         delimiter = delimiter, OS = OS, outfile = labelist$filenames[i], pathIsFolder = pathIsFolder, ... = ...),
                         error = function(x) {
+                            tryCatch(sink(), warning=function(y) return(invisible(y)))
+                            setwd(currentdir)
                             cat(paste("     There is an error associated with the file \"", labelist$filenames[i], "\", see below:\n     ", sep=""))
                             cat(as.character(x))
                         })
@@ -216,7 +234,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             }
         }
         
-        cat("\nSetup files created in:\n", file.path(getwd(), "Setup files"), "\n\n", sep="")
+        cat("\nSetup files created in:\n", file.path(currentdir, "Setup files"), "\n\n", sep="")
         
         return(invisible())
     }
@@ -368,14 +386,59 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 
                 if (is.character(tempvar)) {
                     vartype <- "string"
-                    if (any(tempvar == ".")) { # Stata type empty cells
-                        tempvar[tempvar == "."] <- NA
+                    # %in% performs better than == when NAs are present
+                    # any(tempvar == ".") generates an error, while
+                    # any(tempvar %in% ".") doesn't generate any error
+                    if (any(tempvar %in% ".")) { # Stata type empty cells
+                        tempvar[tempvar %in% "."] <- NA
                         printNOTE <- TRUE
                     }
                 }
                 
-                nofchars <- nchar(as.character(tempvar))
-                nofchars[is.na(tempvar)] <- 0
+                
+                ####
+                # the following code is needed just in case there are multibyte characters somewhere
+                # that prevents nchar() from running properly (if so, it generates an error)
+                nofchars <- tryCatch(nchar(as.character(tempvar)), error = function(x) return(x))
+                
+                if (is.list(nofchars)) {
+                    # if an error is generated, nchar()'s output is a list of length
+                    # a multibyte error should be the only one that nchar() throws
+                    # don't know what other error would be possible with nchar()
+                    
+                    tempvar2 <- tempvar
+                    error <- unlist(strsplit(nofchars[[1]], split=" "))
+                    tempvar2 <- tempvar2[-as.numeric(error[length(error)])]
+                    
+                    multibyte <- TRUE
+                    
+                    while(multibyte) {
+                        
+                        nofchars <- tryCatch(nchar(as.character(tempvar2)), error = function(x) return(x))
+                        if (is.list(nofchars)) {
+                            error <- unlist(strsplit(nofchars[[1]], split=" "))
+                            tempvar2 <- tempvar2[-as.numeric(error[length(error)])]
+                        }
+                        else {
+                            multibyte <- FALSE
+                        }
+                    }
+                    
+                    if (length(nofchars) == 0) {
+                        nofchars <- 1
+                    }
+                    else {
+                        nofchars[is.na(tempvar2)] <- 0
+                    }
+                }
+                else {
+                    nofchars[is.na(tempvar)] <- 0
+                }
+                ####
+                
+                if (is.list(nofchars)) {
+                print(nofchars)
+                }
                 maxvarchar <- max(nofchars)
                 
                 if (toupper(csvnames[i]) %in% names(intrnlbls$vallab)) {
@@ -391,7 +454,10 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 }
                 
                 if (vartype == "numeric") {
-                    if (max(tempvar, na.rm = TRUE) - floor(max(tempvar, na.rm = TRUE)) > 0) { # has decimals
+                    
+                    tempvar2 <- tempvar[!is.na(tempvar)]
+                    
+                    if (any(tempvar2 - floor(tempvar2) > 0)) { # has decimals
                         decimals <- TRUE
                     }
                     else {
@@ -504,16 +570,16 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                   
         if (formats) {
             cat("* -------------- Start Definition Macro --------------", enter, enter,
-                "SET LOCALE = 'English' .", enter,
+                "SET LOCALE = \"English\" .", enter,
                 "SHOW LOCALE .", enter, enter, # SET DECIMAL = COMMA . * (might be another idea)
                 "* --------------     Read Raw Data      --------------", enter, enter,
                 "GET DATA", enter,
                 " /TYPE=TXT", enter,
                 " /FILE=csvpath", enter,
                 " /DELCASE=LINE", enter,
-                " /DELIMITERS=\"", ifelse(delimiter == "\t", "\\t", delimiter), "\"", enter,
-                " /QUALIFIER='\"'", enter,
                 " /ARRANGEMENT=DELIMITED", enter,
+                " /DELIMITERS='", ifelse(delimiter == "\t", "\\t", delimiter), "'", enter,
+                " /QUALIFIER='\"'", enter,
                 " /FIRSTCASE=2", enter,
                 " /IMPORTCASE=ALL", enter,
                 " /VARIABLES=", enter, sep="")
@@ -835,9 +901,11 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         }
         
         
-        maxchars <- max(nchar(names(intrnlbls2$vallab)))
+        maxchars <- max(nchar(names(intrnlbls2$varlab)))
         
         cat("* Definition of variable labels", ifelse(SD == ";", " ;", ""), enter, enter, sep="")
+        
+        # cat(maxchars, enter)
         
         for (n in names(intrnlbls2$varlab)) {
             cat(paste("label variable ", toupper(n), paste(rep(" ", maxchars - nchar(n)), collapse=""), " \"", intrnlbls2$varlab[[n]][1], "\"", ifelse(SD == ";", " ;", ""), enter, sep=""))

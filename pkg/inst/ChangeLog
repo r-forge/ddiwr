@@ -1,3 +1,6 @@
+Version 0.2-1
+    o various bug fixes in setupfile()
+
 Version 0.2-0
     o better arrangement of missing types in the R commands
     o some improvements in the R code generation

@@ -369,7 +369,10 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         
         if (gofurther) {
             
+            # filter the variable labels
             intrnlbls$varlab <- intrnlbls$varlab[which(toupper(names(intrnlbls$varlab)) %in% toupper(csvnames))]
+            
+            # then filter the corresponding value labels
             intrnlbls$vallab <- intrnlbls$vallab[which(toupper(names(intrnlbls$vallab)) %in% toupper(csvnames))]
             
             varnames <- names(intrnlbls$varlab)
@@ -386,12 +389,18 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 
                 if (is.character(tempvar)) {
                     vartype <- "string"
+                    
                     # %in% performs better than == when NAs are present
                     # any(tempvar == ".") generates an error, while
                     # any(tempvar %in% ".") doesn't generate any error
+                    
                     if (any(tempvar %in% ".")) { # Stata type empty cells
-                        tempvar[tempvar %in% "."] <- NA
-                        printNOTE <- TRUE
+                        if (sum(tempvar %in% "") == 0) {
+                            # test if there are pure blank cells
+                            # if none than a "." must be representing a Stata type missing
+                            printNOTE <- TRUE
+                            tempvar[tempvar %in% "."] <- NA
+                        }
                     }
                 }
                 
@@ -409,6 +418,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                     tempvar2 <- tempvar
                     error <- unlist(strsplit(nofchars[[1]], split=" "))
                     tempvar2 <- tempvar2[-as.numeric(error[length(error)])]
+                    
+                    cat("    There are multibyte characters in this data (ex. ", csvnames[i], ", position ", error[length(error)], ")\n", sep="")
                     
                     multibyte <- TRUE
                     
@@ -436,9 +447,6 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 }
                 ####
                 
-                if (is.list(nofchars)) {
-                print(nofchars)
-                }
                 maxvarchar <- max(nofchars)
                 
                 if (toupper(csvnames[i]) %in% names(intrnlbls$vallab)) {

@@ -1298,9 +1298,9 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                     cat("attr(rdatafile, \"missing types\")$", names(missvals)[i],
                         "[[\"", names(values)[values == missvals[[i]][j]], "\"]] <- list(", enter,
                         "values = ", testvals, ",", enter,
-                        "cases = rdatafile$", uniqueid, "[rdatafile$", names(missvals)[i], 
+                        "cases = sort(rdatafile$", uniqueid, "[rdatafile$", names(missvals)[i], 
                         ifelse(length(missvals[[i]][j]) == 1, " == ", " %in% "), testvals,  
-                        "]", enter, ")", enter, enter, sep="")
+                        "])", enter, ")", enter, enter, sep="")
                 }
                 
                 # here, though, it is likely to have multiple missing values
@@ -1329,7 +1329,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             "# ------------------------------------------------------------------------------",
             enter, enter, enter, enter,
             "# --- Clean up the working space --- ", enter, enter,
-            "rm(rfilename, rdatafile, csvpath, rdatapath, tempvar, vallist", sep="")
+            "rm(rfilename, rdatafile, csvpath, rdatapath", sep="")
         
         if (any(unlist(stringvars))) {
             cat(", ", paste(names(stringvars)[unlist(stringvars)], collapse=", "), sep="")

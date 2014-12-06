@@ -1,5 +1,6 @@
 Version 0.2-1
     o various bug fixes in setupfile()
+    o removed argument "trymiss", it was only designed for the English language
 
 Version 0.2-0
     o better arrangement of missing types in the R commands

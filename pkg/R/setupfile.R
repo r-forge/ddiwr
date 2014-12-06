@@ -1,4 +1,4 @@
-setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, uniqueid = "",
+setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                       SD = "", delimiter = ",", OS = "windows", outfile="", ...) {
     
     # change the intrnlbls argument into a very unique name, just in case the
@@ -10,7 +10,6 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
     
     other.args <- list(...)
     
-    pathIsFolder <- FALSE
     if ("pathIsFolder" %in% names(other.args)) {
         pathIsFolder <- other.args$pathIsFolder
     }
@@ -51,6 +50,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 xmlfiles <- TRUE
             }
         }
+        
+        pathIsFolder <- length(labelist$fileext) > 1
         
         if (!file.exists("Setup files")) {
             dir.create("Setup files")
@@ -120,10 +121,16 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         }
         
         
+        # when pathIsFolder, it is unlikely that uniqueid is the same for all data files
+        # so set uniqueid to "" to ignore it.
+        
+        if (pathIsFolder) {
+            uniqueid <- ""
+        }
+        
         for (i in seq(length(labelist$files))) {
             
             if (xmlfiles) {
-                # cat("bla")
                 intrnlblsObject <- getMetadata(file.path(labelist$completePath, labelist$files[i]), fromsetupfile = TRUE, saveFile = saveFile)
             }
             else {
@@ -168,7 +175,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                                 intrnlblsObject <- get(setdiff(bb, aa))
                             }
                             
-                            tryCatch(Recall(intrnlblsObject, type = type, miss = miss, csv = csvreadfile, trymiss = trymiss, uniqueid = uniqueid, SD = SD,
+                            tryCatch(Recall(intrnlblsObject, type = type, miss = miss, csv = csvreadfile, uniqueid = uniqueid, SD = SD,
                                             delimiter = delimiter, OS = OS, outfile = labelist$filenames[i], pathIsFolder = pathIsFolder, ... = ...),
                                 error = function(x) {
                                     # if no sink() is needed, an invisible warning message will be returned
@@ -185,7 +192,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                     if (!xmlfiles) {
                         intrnlblsObject <- get(setdiff(bb, aa))
                     }
-                    tryCatch(Recall(intrnlblsObject, type = type, miss = miss, trymiss = trymiss, uniqueid = uniqueid, SD = SD, 
+                    
+                    tryCatch(Recall(intrnlblsObject, type = type, miss = miss, uniqueid = uniqueid, SD = SD, 
                                     delimiter = delimiter, OS = OS, outfile = labelist$filenames[i], pathIsFolder = pathIsFolder, ... = ...),
                         error = function(x) {
                             tryCatch(sink(), warning=function(y) return(invisible(y)))
@@ -203,7 +211,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                         if (!xmlfiles) {
                             intrnlblsObject <- get(setdiff(bb, aa))
                         }
-                        tryCatch(Recall(intrnlblsObject, type = type, miss = miss, csv = csv, trymiss = trymiss, uniqueid = uniqueid, SD = SD,
+                        tryCatch(Recall(intrnlblsObject, type = type, miss = miss, csv = csv, uniqueid = uniqueid, SD = SD,
                                         delimiter = delimiter, OS = OS, outfile = labelist$filenames[i], pathIsFolder = pathIsFolder, ... = ...),
                         error = function(x) {
                             tryCatch(sink(), warning=function(y) return(invisible(y)))
@@ -218,7 +226,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                         if (!xmlfiles) {
                             intrnlblsObject <- get(setdiff(bb, aa))
                         }
-                        tryCatch(Recall(intrnlblsObject, type = type, miss = miss, trymiss = trymiss, uniqueid = uniqueid, SD = SD, 
+                        tryCatch(Recall(intrnlblsObject, type = type, miss = miss, uniqueid = uniqueid, SD = SD, 
                                         delimiter = delimiter, OS = OS, outfile = labelist$filenames[i], pathIsFolder = pathIsFolder, ... = ...),
                         error = function(x) {
                             tryCatch(sink(), warning=function(y) return(invisible(y)))
@@ -232,6 +240,11 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             if (!xmlfiles) {
                 rm(list = c(eval(setdiff(bb, aa)), "bb", "aa"))
             }
+        }
+        
+        if (pathIsFolder & (type == "all" | type == "R")) {
+            cat("\nMissing values not treated for R when using an entire directory.\n")
+            cat("Run individual commands and specify the uniqueid for each dataset.\n")
         }
         
         cat("\nSetup files created in:\n", file.path(currentdir, "Setup files"), "\n\n", sep="")
@@ -529,15 +542,11 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
     })
     
     
-    if (missing(miss)) {
-        if (trymiss) {
-            miss <- c("DK/NA", "DK/NO", "DK", "NA", "N/A", "N.A.", "Not answered",
-                      "Don't know", "(Don't know)", "No answer", "No opinion",
-                      "Not applicable", "Not relevant", "Refused", "(Refused)",
-                      "Refused / no answer", "(Refused / no answer)",
-                      "Can't say", "Don't know / Can't say")
-        }
-    }
+     #  c("DK/NA", "DK/NO", "DK", "NA", "N/A", "N.A.", "Not answered",
+     #    "Don't know", "(Don't know)", "No answer", "No opinion",
+     #    "Not applicable", "Not relevant", "Refused", "(Refused)",
+     #    "Refused / no answer", "(Refused / no answer)",
+     #    "Can't say", "Don't know / Can't say")
     
     
     if (type == "SPSS" | type == "all") {
@@ -698,7 +707,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
             
             withmiss2 <- which(withmiss)
             
-            if(length(missvals) > 0) {
+            if (length(missvals) > 0) {
                 uniqueMissList <- list()
                 for (i in seq(length(missvals))) {
                     vars <- NULL
@@ -711,68 +720,71 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                     uniqueMissList[[i]] <- vars
                 }
                 
-                cat("* --- Add missing values --- ", enter, enter,
-                    "MISSING VALUES", enter, sep="")
-                    
-                for (i in seq(length(uniqueMissList))) {
-                    if (length(missvals[[i]]) < 4) {
-                        cat(splitrows(uniqueMissList[[i]], enter, 80))
-                        cat(" (", paste(missvals[[i]], collapse=", ") , ")", sep="")
-                    }
-                    else {
-                        absrange <- abs(range(missvals[[i]]))
+                if (length(uniqueMissList) > 0) {
+                
+                    cat("* --- Add missing values --- ", enter, enter,
+                        "MISSING VALUES", enter, sep="")
                         
-                        if (all(missvals[[i]] < 0)) {
+                    for (i in seq(length(uniqueMissList))) {
+                        if (length(missvals[[i]]) < 4) {
                             cat(splitrows(uniqueMissList[[i]], enter, 80))
-                            cat(" (LOWEST THRU ", max(missvals[[i]]) , ")", sep="")
+                            cat(" (", paste(missvals[[i]], collapse=", ") , ")", sep="")
                         }
                         else {
-                            # check if the missing values range doesn't contain any other (non-missing) values
-                            checklist <- list()
-                            for (mv in uniqueMissList[[i]]) {
-                                allvalues <- intrnlbls2$vallab[[mv]]
-                                nonmiss <- allvalues[!allvalues %in% missvals[[i]]]
-                                checklist[[mv]] <- any(nonmiss %in% seq(min(missvals[[i]]), max(missvals[[i]])))
-                            }
+                            absrange <- abs(range(missvals[[i]]))
                             
-                            checklist <- unlist(checklist)
-                            
-                            # print(checklist)
-                            
-                            if (any(checklist)) {
-                                # at least one variable has a non-missing value within the range of the missing values
-                                printMISSING <- TRUE
-                                
-                                # now trying to see if at least some of the variables can be "rescued"
-                                if (any(!checklist)) {
-                                    ###
-                                    # poate merge...? DE TESTAT
-                                    cat(splitrows(names(checklist)[!checklist], enter, 80))
-                                    # cat(paste(names(checklist)[!checklist], collapse=", "))
-                                    ###
-                                    cat(paste(" (", min(missvals[[i]]), " TO ", max(missvals[[i]]) , ")", enter, sep=""))
-                                    checklist <- checklist[checklist]
-                                }
-                                
-                                ###
-                                # poate merge...? DE TESTAT
-                                cat(splitrows(names(checklist), enter, 80))
-                                # cat(paste(names(checklist), collapse=", "))
-                                ###
-                                cat(paste(" (", paste(missvals[[i]][1:3], collapse=", ") , ")", sep=""))
-                                cat(ifelse(i == length(uniqueMissList), " .", ""))
-                                cat("  * more than three distinct missing values found")
+                            if (all(missvals[[i]] < 0)) {
+                                cat(splitrows(uniqueMissList[[i]], enter, 80))
+                                cat(" (LOWEST THRU ", max(missvals[[i]]) , ")", sep="")
                             }
                             else {
-                                cat(splitrows(uniqueMissList[[i]], enter, 80))
-                                cat(" (", min(missvals[[i]]), " TO ", max(missvals[[i]]) , ")", sep="") 
+                                # check if the missing values range doesn't contain any other (non-missing) values
+                                checklist <- list()
+                                for (mv in uniqueMissList[[i]]) {
+                                    allvalues <- intrnlbls2$vallab[[mv]]
+                                    nonmiss <- allvalues[!allvalues %in% missvals[[i]]]
+                                    checklist[[mv]] <- any(nonmiss %in% seq(min(missvals[[i]]), max(missvals[[i]])))
+                                }
+                                
+                                checklist <- unlist(checklist)
+                                
+                                # print(checklist)
+                                
+                                if (any(checklist)) {
+                                    # at least one variable has a non-missing value within the range of the missing values
+                                    printMISSING <- TRUE
+                                    
+                                    # now trying to see if at least some of the variables can be "rescued"
+                                    if (any(!checklist)) {
+                                        ###
+                                        # poate merge...? DE TESTAT
+                                        cat(splitrows(names(checklist)[!checklist], enter, 80))
+                                        # cat(paste(names(checklist)[!checklist], collapse=", "))
+                                        ###
+                                        cat(paste(" (", min(missvals[[i]]), " TO ", max(missvals[[i]]) , ")", enter, sep=""))
+                                        checklist <- checklist[checklist]
+                                    }
+                                    
+                                    ###
+                                    # poate merge...? DE TESTAT
+                                    cat(splitrows(names(checklist), enter, 80))
+                                    # cat(paste(names(checklist), collapse=", "))
+                                    ###
+                                    cat(paste(" (", paste(missvals[[i]][1:3], collapse=", ") , ")", sep=""))
+                                    cat(ifelse(i == length(uniqueMissList), " .", ""))
+                                    cat("  * more than three distinct missing values found")
+                                }
+                                else {
+                                    cat(splitrows(uniqueMissList[[i]], enter, 80))
+                                    cat(" (", min(missvals[[i]]), " TO ", max(missvals[[i]]) , ")", sep="") 
+                                }
                             }
                         }
+                        cat(ifelse(i == length(uniqueMissList), " .", ""))
+                        cat(enter)
                     }
-                    cat(ifelse(i == length(uniqueMissList), " .", ""))
-                    cat(enter)
+                    cat(enter, enter, sep="")
                 }
-                cat(enter, enter, sep="")
             }
         }
         
@@ -1262,6 +1274,15 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         
         
         printMISSING <- FALSE
+        printUNIQUE <- FALSE
+        
+        if (is.data.frame(csv) & uniqueid != "") {
+            if (any(table(csv[, uniqueid]) > 1)) {
+                uniqueid <- ""
+                printUNIQUE <- TRUE
+            }
+        }
+        
         if (!missing(miss) & uniqueid != "" & is.data.frame(csv)) {
             
             if (is.numeric(miss)) {
@@ -1277,44 +1298,45 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
                 names(missvals) <- names(intrnlbls2$vallab)[withmiss]
             }
             
-            
-            cat("# --- Set the missing values attribute --- ", enter, enter,
-                "attr(rdatafile, \"unique id\") <- \"", uniqueid, "\"", enter, enter, sep="")
-                
-            for (i in seq(length(missvals))) {
-                values <- intrnlbls2$vallab[[names(missvals)[i]]]
-                cat("# ", names(missvals)[i], enter, sep="")
-                
-                for (j in seq(length(missvals[[i]]))) {
+            if (length(missvals) > 0) {
+                cat("# --- Set the missing values attribute --- ", enter, enter,
+                    "attr(rdatafile, \"unique id\") <- \"", uniqueid, "\"", enter, enter, sep="")
                     
-                    # for the moment, the length of missvals[[i]][j] is always equal to 1,
-                    # but in the future metadata information might allocate ranges for some missing types
-                    # therefore missvals[[i]] might be a list
+                for (i in seq(length(missvals))) {
+                    values <- intrnlbls2$vallab[[names(missvals)[i]]]
+                    cat("# ", names(missvals)[i], enter, sep="")
                     
-                    testvals <- ifelse(length(missvals[[i]][j]) == 1,
-                                       missvals[[i]][j],
-                                       paste("c(", paste(missvals[[i]][j], collapse = ", "), ")", sep=""))
+                    for (j in seq(length(missvals[[i]]))) {
+                        
+                        # for the moment, the length of missvals[[i]][j] is always equal to 1,
+                        # but in the future metadata information might allocate ranges for some missing types
+                        # therefore missvals[[i]] might be a list
+                        
+                        testvals <- ifelse(length(missvals[[i]][j]) == 1,
+                                           missvals[[i]][j],
+                                           paste("c(", paste(missvals[[i]][j], collapse = ", "), ")", sep=""))
+                        
+                        cat("attr(rdatafile, \"missing types\")$", names(missvals)[i],
+                            "[[\"", names(values)[values == missvals[[i]][j]], "\"]] <- list(", enter,
+                            "values = ", testvals, ",", enter,
+                            "cases = sort(rdatafile$", uniqueid, "[rdatafile$", names(missvals)[i], 
+                            ifelse(length(missvals[[i]][j]) == 1, " == ", " %in% "), testvals,  
+                            "])", enter, ")", enter, enter, sep="")
+                    }
                     
-                    cat("attr(rdatafile, \"missing types\")$", names(missvals)[i],
-                        "[[\"", names(values)[values == missvals[[i]][j]], "\"]] <- list(", enter,
-                        "values = ", testvals, ",", enter,
-                        "cases = sort(rdatafile$", uniqueid, "[rdatafile$", names(missvals)[i], 
-                        ifelse(length(missvals[[i]][j]) == 1, " == ", " %in% "), testvals,  
-                        "])", enter, ")", enter, enter, sep="")
+                    # here, though, it is likely to have multiple missing values
+                    # in the future, missvals[[i]] might be a list to accommodate for ranges
+                    
+                    cat("rdatafile$", names(missvals)[i], "[rdatafile$", names(missvals)[i],
+                        ifelse(length(unlist(missvals[[i]])) == 1, paste(" == ", unlist(missvals[[i]]), sep=""),
+                               paste(" %in% c(", paste(unlist(missvals[[i]]), collapse = ", "), ")", sep="")), 
+                        "] <- NA", enter, enter, sep="")
                 }
                 
-                # here, though, it is likely to have multiple missing values
-                # in the future, missvals[[i]] might be a list to accommodate for ranges
-                
-                cat("rdatafile$", names(missvals)[i], "[rdatafile$", names(missvals)[i],
-                    ifelse(length(unlist(missvals[[i]])) == 1, paste(" == ", unlist(missvals[[i]]), sep=""),
-                           paste(" %in% c(", paste(unlist(missvals[[i]]), collapse = ", "), ")", sep="")), 
-                    "] <- NA", enter, enter, sep="")
+                cat(enter, enter,
+                "# ------------------------------------------------------------------------------",
+                enter, enter, enter, enter, sep="")
             }
-            
-            cat(enter, enter,
-            "# ------------------------------------------------------------------------------",
-            enter, enter, enter, enter, sep="")
         }
         else if (!missing(miss) & (uniqueid == "" | is.data.frame(csv))) {
             printMISSING <- TRUE
@@ -1344,9 +1366,14 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, trymiss = FALSE, un
         # finish writing and close the .R file
         sink()
         
-        if (printMISSING) {
-            # this would be printed on the screen
-            cat("The \"csv\" and \"uniqueid\" arguments are both mandatory to produce R missing values commands.\n\n")
+        if (printUNIQUE) {
+            cat("    The uniqueid variabile is not unique.\n    Missing values not treated for the R setup file.\n\n")
+        }
+        else {
+            if (printMISSING & !pathIsFolder) {
+                # this would be printed on the screen
+                cat("    The \"csv\" and \"uniqueid\" arguments are both mandatory\n    to produce R missing values commands.\n\n")
+            }
         }
                 
         setwd(currentdir)

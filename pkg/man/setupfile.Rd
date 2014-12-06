@@ -9,7 +9,7 @@ This function creates a setup file, based on a list of variable and value labels
 }
 
 \usage{
-setupfile(lbls = "", type = "all", csv = "", miss, trymiss = FALSE, uniqueid = "",
+setupfile(lbls = "", type = "all", csv = "", miss, uniqueid = "",
           SD = "", delimiter = ",", OS = "windows", outfile = "", ...)
 }
 
@@ -23,8 +23,6 @@ setupfile(lbls = "", type = "all", csv = "", miss, trymiss = FALSE, uniqueid = "
              commands are created, or a path to the directory where the .csv files
              are located, for batch processing.}
   \item{miss}{A vector of missing values, or missing labels.}
-  \item{trymiss}{Boolean, if TRUE it will try hard to find common missing values
-                 (e.g. "DK", or "NA" etc.)}
   \item{uniqueid}{Character, the name of the unique identifier variable}
   \item{SD}{The row delimiter for the Stata commands, can be for example "" or ";"}
   \item{delimiter}{The column delimiter to be used for reading the .csv file,
@@ -42,14 +40,6 @@ All created setup files will be saved in a directory called "Setup Files" which
 The argument \verb{miss} expects either:\cr
 - a vector of missing values (e.g. -1, -2, -3), or\cr
 - a vector of missing labels
-
-If this is not provided, but \verb{trymiss} is set to TRUE, then it searches all
-value labels for these common missing categories:\cr
-\verb{"DK/NA"}, \verb{"DK/NO"}, \verb{"DK"}, \verb{"NA"}, \verb{"N/A"}, \verb{"Not answered"},\cr
-\verb{"Don't know"}, \verb{"(Don't know)"}, \verb{"No answer"}, \verb{"No opinion"},\cr
-\verb{"Not applicable"}, \verb{"Not relevant"}, \verb{"Refused"}, \verb{"(Refused)"},\cr
-\verb{"Refused / no answer"}, \verb{"(Refused / no answer)"},\cr
-\verb{"Can't say"}, \verb{"Don't know / Can't say"}.
 
 If batch processing multiple files, the function will inspect all files in the
 provided directory, and retain only those with the extension  \verb{.R} or \verb{.r}
@@ -156,14 +146,17 @@ test$vallab$V3 <- c(
 ##### then run these commands
 ###
 # path.to.csv <- file.path(system.file(package = "DDIwR"), "data", "test.csv.gz")
-# setupfile(test, trymiss = TRUE, csv = path.to.csv, uniqueid = "ID")
+# miss <- c("Not applicable", "Don't know", "Not answered")
+# setupfile(test, csv = path.to.csv, uniqueid = "ID",
+#           miss <- c("Not applicable", "Don't know", "Not answered"))
 
 
 # setupfile(test, csv = path.to.csv, type="Stata", SD=";")
 
 
 ##### other types of possible utilizations, using paths to specific files
-###
+### an XML file containing a DDI metadata object
+## 
 # setupfile("/path/to/the/metadata/file.xml", csv="/path/to/csv/file.csv")
 
 

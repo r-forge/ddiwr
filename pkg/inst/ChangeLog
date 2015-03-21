@@ -1,7 +1,9 @@
 Version 0.2-1
     o various bug fixes in setupfile()
-    o removed argument "trymiss", it was only designed for the English language
-
+    o new argument "forcenum" to force imported string variables as numeric
+    o removed argument "trymiss", incompatible with multiple languages
+    o improved code for the SAS setup files
+    
 Version 0.2-0
     o better arrangement of missing types in the R commands
     o some improvements in the R code generation

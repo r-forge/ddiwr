@@ -9,9 +9,11 @@ This function creates a setup file, based on a list of variable and value labels
 }
 
 \usage{
-setupfile(lbls = "", type = "all", csv = "", miss, uniqueid = "",
-          SD = "", delimiter = ",", OS = "windows", outfile = "", ...)
+setupfile(lbls = "", type = "all", csv = "", miss = "", uniqueid = "",
+          SD = "", delimiter = ",", OS = "windows", outfile = "",
+          forcenum = c(""), ...)
 }
+
 
 \arguments{
   \item{lbls}{The list object containing the variable and value labels as separate
@@ -29,6 +31,7 @@ setupfile(lbls = "", type = "all", csv = "", miss, uniqueid = "",
                    default is ","}
   \item{OS}{The target operating system, for the eol - end of line separator.}
   \item{outfile}{Character, the name of the setup file being created.}
+  \item{forcenum}{A vector of column names which should be forced as numeric.}
   \item{...}{Other arguments (not used in this function).}
 }
 
@@ -87,6 +90,12 @@ running OS.
 The argument \verb{outfile} expects the name of the final setup file being saved
 on the disk. If nothing is provided, the name of the object provided for the
 \verb{lbls} argument will be used as a filename.
+
+The argument \verb{forcenum} forces imported character variables as numeric.
+Sometimes, a clearly numerical variable might have string entries like "N.A." in the
+csv file, thus when importing the entire variables it is detected as character
+instead of numeric. All these string entries will be eliminated, leaving only
+numbers which are suitable to force the variable as numeric.
 
 There is also an undocumented, boolean argument called \verb{saveFile}, which if
 set to TRUE it will save an R version if the metadata was read from a DDI \verb{.xml}

@@ -1,5 +1,6 @@
-setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
-                      SD = "", delimiter = ",", OS = "windows", outfile="", ...) {
+setupfile <- function(lbls = "", type="all", csv = "", miss = "", uniqueid = "",
+                      SD = "", delimiter = ",", OS = "windows", outfile = "",
+                      forcenum = c(""), ...) {
     
     # change the intrnlbls argument into a very unique name, just in case the
     # list object in the external R file(s) are named "intrnlbls" as well
@@ -23,6 +24,13 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
     if (OS == "") {
         OS <- Sys.info()[['sysname']]
     }
+    
+    getNofDecimals <- function(number) {
+        decs <- nchar(format(abs(number),scientific=FALSE))-(trunc(log10(max(1,trunc(abs(number)))))+1)-1
+        return(ifelse(decs < 0, 0, decs))
+    }
+    
+    
     
     if (all(is.character(intrnlbls))) { # all() just in case someone provides a vector by mistake
         
@@ -124,9 +132,9 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
         # when pathIsFolder, it is unlikely that uniqueid is the same for all data files
         # so set uniqueid to "" to ignore it.
         
-        if (pathIsFolder) {
-            uniqueid <- ""
-        }
+        # if (pathIsFolder) {
+        #     uniqueid <- ""
+        # }
         
         for (i in seq(length(labelist$files))) {
             
@@ -242,10 +250,10 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             }
         }
         
-        if (pathIsFolder & (type == "all" | type == "R")) {
-            cat("\nMissing values not treated for R when using an entire directory.\n")
-            cat("Run individual commands and specify the uniqueid for each dataset.\n")
-        }
+        # if (pathIsFolder & (type == "all" | type == "R")) {
+        #     cat("\nMissing values not treated for R when using an entire directory.\n")
+        #     cat("Run individual commands and specify the uniqueid for each dataset.\n")
+        # }
         
         cat("\nSetup files created in:\n", file.path(currentdir, "Setup files"), "\n\n", sep="")
         
@@ -394,11 +402,11 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             
             printNOTE <- FALSE
             
-            for (i in seq(length(csvnames))) {
+            for (i in seq(ncol(csv))) {
                 vartype <- "numeric"
                 decimals <- FALSE
                 
-                tempvar <- csv[, csvnames[i]]
+                tempvar <- csv[, i]
                 
                 if (is.character(tempvar)) {
                     vartype <- "string"
@@ -424,7 +432,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                 nofchars <- tryCatch(nchar(as.character(tempvar)), error = function(x) return(x))
                 
                 if (is.list(nofchars)) {
-                    # if an error is generated, nchar()'s output is a list of length
+                    # if an error is generated, nchar()'s output is a list
                     # a multibyte error should be the only one that nchar() throws
                     # don't know what other error would be possible with nchar()
                     
@@ -523,7 +531,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
     })
     
     
-    if (missing(outfile)) {
+    if (identical(outfile, "")) {
         if (grepl("\"", intrnlbls_objname)) {
             outfile <- readline("Name for the setup file:\n")
         }
@@ -542,11 +550,32 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
     })
     
     
-     #  c("DK/NA", "DK/NO", "DK", "NA", "N/A", "N.A.", "Not answered",
-     #    "Don't know", "(Don't know)", "No answer", "No opinion",
-     #    "Not applicable", "Not relevant", "Refused", "(Refused)",
-     #    "Refused / no answer", "(Refused / no answer)",
-     #    "Can't say", "Don't know / Can't say")
+    # initiate an empty list
+    numerical_with_strings <- list()
+    
+    if (!identical(forcenum, c(""))) {
+        
+        if (!all(forcenum %in% csvnames)) {
+            cat("The following <numerical> variable names were not found in the data:\n",
+                "\"", paste(forcenum[!forcenum %in% csvnames], collapse="\", \""), "\"\n\n", sep="")
+        }
+        
+        which_numerical <- csvnames[csvnames %in% forcenum]
+        
+        if (length(which_numerical) > 0) {
+            
+            # test which values are not numbers in the respective variables
+            # has_strings  <- lapply(csv[, which_numerical, drop = FALSE], function(x) {
+            #    grep("^-?[0-9]+([.]?[0-9]+)?$", x, perl=TRUE, invert=TRUE)
+            # })
+            
+            has_strings  <- lapply(csv[, which_numerical, drop = FALSE], function(x) {
+                which(is.na(suppressWarnings(as.numeric(x))))
+            })
+            
+            numerical_with_strings  <- has_strings[unlist(lapply(has_strings, length)) > 0]
+        }
+    }
     
     
     if (type == "SPSS" | type == "all") {
@@ -647,12 +676,37 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                         "COMPUTE ", toupper(i), " = TEMPVRBL .", enter, "EXECUTE .", enter, enter, sep="")
                     cat("DELETE VARIABLES TEMPVRBL .", enter, "EXECUTE .", enter, enter, sep="")
                     
-                    names(vals) <- names(sort(intrnlbls2$vallab[[i]]))
+                    names(vals) <- names(intrnlbls2$vallab[[i]])
                     intrnlbls2$vallab[[i]] <- vals
                 }
             }
             cat(enter)
         }
+        
+        
+        
+        if (length(numerical_with_strings) > 0) {
+            cat("* --- Force variables as numeric --- ", enter, enter, sep="")
+            
+            for (i in names(numerical_with_strings)) {
+                
+                tempvar <- csv[, i]
+                
+                ##### code to recode and transform into numeric
+                cat("RECODE ", toupper(i), " (\"", paste(sort(unique(tempvar[numerical_with_strings[[i]]])), collapse = "\" = \"\") (\""), "\" = \"\") .", enter,
+                    "EXECUTE .", enter, enter, sep="")
+                
+                tempvar <- tempvar[-numerical_with_strings[[i]]]
+                tempvar <- as.numeric(tempvar)
+                
+                cat ("ALTER TYPE ", toupper(i), " (F", max(nchar(tempvar)), ".", ifelse(any(tempvar - floor(tempvar) > 0), 2, 0), ") .", enter,
+                     "EXECUTE .", enter, enter, sep="")
+                
+            }
+            cat(enter)
+        }
+        
+        
         
         cat("* --- Add variable labels --- ", enter, enter,
             "VARIABLE LABELS", enter, sep="")
@@ -668,7 +722,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
         
         cat("* --- Add value labels --- ", enter, enter,
             "VALUE LABELS", enter, sep="")
-    
+        
+        
         for (i in seq(length(uniqueList))) {
             n <- uniqueList[[i]][1]
             
@@ -690,7 +745,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
         cat(enter, enter, sep="")
         
         
-        if (!missing(miss)) {
+        if (!identical(miss, "")) {
         
             if (is.numeric(miss)) {
                 missvars <- lapply(intrnlbls2$vallab, function(x) !is.na(match(miss, x)))
@@ -727,14 +782,14 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                         
                     for (i in seq(length(uniqueMissList))) {
                         if (length(missvals[[i]]) < 4) {
-                            cat(splitrows(uniqueMissList[[i]], enter, 80))
+                            cat(splitrows(toupper(uniqueMissList[[i]]), enter, 80))
                             cat(" (", paste(missvals[[i]], collapse=", ") , ")", sep="")
                         }
                         else {
                             absrange <- abs(range(missvals[[i]]))
                             
                             if (all(missvals[[i]] < 0)) {
-                                cat(splitrows(uniqueMissList[[i]], enter, 80))
+                                cat(splitrows(toupper(uniqueMissList[[i]]), enter, 80))
                                 cat(" (LOWEST THRU ", max(missvals[[i]]) , ")", sep="")
                             }
                             else {
@@ -775,7 +830,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                                     cat("  * more than three distinct missing values found")
                                 }
                                 else {
-                                    cat(splitrows(uniqueMissList[[i]], enter, 80))
+                                    cat(splitrows(toupper(uniqueMissList[[i]]), enter, 80))
                                     cat(" (", min(missvals[[i]]), " TO ", max(missvals[[i]]) , ")", sep="") 
                                 }
                             }
@@ -821,7 +876,6 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
     
     if (type == "Stata" | type == "all") {
         intrnlbls2 <- intrnlbls
-        uniqueList2 <- uniqueList
         
         if (!file.exists("Setup files")) {
             dir.create("Setup files")
@@ -852,7 +906,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             ifelse(SD == ";", "                   ;", ""), enter,
             "* name of the Stata log file.",
             ifelse(SD == ";", "                                                  ;", ""), enter,
-            "* Change LOG_FILENAME to your filename, below:", enter,
+            "* Change LOG_FILENAME to your filename, below:",
             ifelse(SD == ";", "                                 ;", ""), enter,
             "local log_file \"LOG_FILENAME\"",
             ifelse(SD == ";", " ;", ""), enter, enter, enter,
@@ -860,16 +914,16 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             ifelse(SD == ";", "                   ;", ""), enter,
             "* name of the CSV file, usual file extension \".csv\"",
             ifelse(SD == ";", "                            ;", ""), enter,
-            "* Change CSV_DATA_PATH to your filename, below:", enter,
-            ifelse(SD == ";", "                                 ;", ""), enter,
+            "* Change CSV_DATA_PATH to your filename, below:",
+            ifelse(SD == ";", "                                ;", ""), enter,
             "local csvpath \"CSV_DATA_PATH\"",
             ifelse(SD == ";", " ;", ""), enter, enter, enter,
             "* The following command should contain the complete path and",
             ifelse(SD == ";", "                   ;", ""), enter,
             "* name of the STATA file, usual file extension \".dta\"",
             ifelse(SD == ";", "                          ;", ""), enter,
-            "* Change STATA_DATA_PATH to your filename, below:", enter,
-            ifelse(SD == ";", "                               ;", ""), enter,
+            "* Change STATA_DATA_PATH to your filename, below:",
+            ifelse(SD == ";", "                              ;", ""), enter,
             "local statapath \"STATA_DATA_PATH\"",
             ifelse(SD == ";", " ;", ""), enter, enter, enter,
             "* --- CONFIGURATION SECTION - END ---",
@@ -877,7 +931,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             "* ----------------------------------------------------------------------------",
             ifelse(SD == ";", " ;", ""), enter, enter, enter, enter,
             "* There should be nothing to change below this line",
-            ifelse(SD == ";", "                   ;", ""), enter,
+            ifelse(SD == ";", "                            ;", ""), enter,
             "* ----------------------------------------------------------------------------",
             ifelse(SD == ";", " ;", ""), enter, enter, enter, enter,         
             "log using \"`log_file'\", replace text",
@@ -885,7 +939,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             "insheet using \"`csvpath'\", comma names case",
             ifelse(SD == ";", " ;", ""), enter, enter,
             "* Note that some variables in the csv raw data file might be in lowercase",
-            ifelse(SD == ";", "          ;", ""), enter,
+            ifelse(SD == ";", "      ;", ""), enter,
             "* To ensure that the dataset contains only variable names in uppercase",
             ifelse(SD == ";", "         ;", ""), enter, enter,
             "foreach var of varlist _all {",
@@ -901,24 +955,56 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
         if (any(unlist(stringvars))) {
             cat("* Recode string variables which have labels, to numeric variables", ifelse(SD == ";", " ;", ""), enter, enter, sep="")
             for (i in seq(length(stringvars))) {
+                
                 if (stringvars[[i]]) {
-                    cat(paste("encode (", toupper(names(stringvars)[i]), "), generate (", toupper(names(stringvars)[i]), "_NUM)", ifelse(SD == ";", " ;", ""), enter, sep=""))
-                    vals <- seq(length(intrnlbls2$vallab[[names(stringvars)[i]]]))
-                        ## sort() is necessary because Stata automatically transforms
-                        # character to numeric using the labels in alfabetical ascending order (TO VERIFY THAT!!)
-                    names(vals) <- names(sort(intrnlbls2$vallab[[names(stringvars)[i]]]))
+                
+                    ## sort() is necessary because Stata automatically transforms
+                    # character to numeric using the labels in alfabetical ascending order (TO VERIFY THAT!!)
+                    vallabs <- sort(intrnlbls2$vallab[[names(stringvars)[i]]])
+                    
+                    vals <- seq(length(vallabs))
+                    names(vals) <- names(vallabs)
+                    
+                    if (any(grepl("^[0-9]", vallabs))) {
+                        cat("generate TEMPVAR = .", ifelse(SD == ";", " ;", ""), enter, sep="")
+                        for (j in vals) {
+                            cat("replace TEMPVAR = ", j, " if ", toupper(names(stringvars)[i]), " == \"", vallabs[j], ifelse(SD == ";", "\" ;", "\""), enter, sep="")
+                        }
+                        cat("drop ", toupper(names(stringvars)[i]), ifelse(SD == ";", " ;", ""), enter,
+                            "rename TEMPVAR ", toupper(names(stringvars)[i]), ifelse(SD == ";", " ;", ""), enter, sep="")
+                    }
+                    else {
+                        cat("encode (", toupper(names(stringvars)[i]), "), generate (TEMPVAR)", ifelse(SD == ";", " ;", ""), enter,
+                            "drop ", toupper(names(stringvars)[i]), ifelse(SD == ";", " ;", ""), enter,
+                            "rename TEMPVAR ", toupper(names(stringvars)[i]), ifelse(SD == ";", " ;", ""), enter, sep="")
+                    }
+                    
                     intrnlbls2$vallab[[names(stringvars)[i]]] <- vals
-                    newname <- paste(toupper(names(stringvars)[i]), "NUM", sep="_")
-                    uniqueList2 <- lapply(uniqueList2, function(x) {
-                        x[x == names(stringvars)[i]] <- newname
-                        return(x)
-                    })
-                    names(intrnlbls2$vallab)[i] <- newname
-                    names(intrnlbls2$varlab)[names(intrnlbls2$varlab) == names(stringvars)[i]] <- newname
+                    cat(enter)
                 }
             }
             cat(enter, enter, sep="")
         }
+        
+        
+        
+        if (length(numerical_with_strings) > 0) {
+            cat("* Force variables as numeric", ifelse(SD == ";", " ;", ""), enter, enter, sep="")
+            
+            for (i in names(numerical_with_strings)) {
+                
+                tempvar <- csv[, i]
+                
+                for (j in sort(unique(tempvar[numerical_with_strings[[i]]]))) {
+                    cat("replace ", toupper(i), " = \"\" if ", toupper(i), " == \"", j, ifelse(SD == ";", "\" ;", "\""), enter, sep="")
+                }
+                
+                cat ("destring ", toupper(i), ", replace", ifelse(SD == ";", " ;", ""), enter, enter, sep="")
+                
+            }
+            cat(enter)
+        }
+        
         
         
         maxchars <- max(nchar(names(intrnlbls2$varlab)))
@@ -934,8 +1020,8 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
         
         cat("* Definition of category labels", ifelse(SD == ";", " ;", ""), enter, enter, sep="")
         
-        for (i in seq(length(uniqueList2))) {
-            n <- uniqueList2[[i]][1]
+        for (i in seq(length(uniqueList))) {
+            n <- uniqueList[[i]][1]
             
             headerlabel <- paste("label define LABELS_GROUP_", i, sep="")
             
@@ -970,9 +1056,9 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
         cat(enter, enter, sep="")
         cat("* Attachment of category labels to variables", ifelse(SD == ";", " ;", ""), enter, enter, sep="")
         
-        for (i in seq(length(uniqueList2))) {
-            n <- uniqueList2[[i]][1]
-            for (j in uniqueList2[[i]]) {
+        for (i in seq(length(uniqueList))) {
+            n <- uniqueList[[i]][1]
+            for (j in uniqueList[[i]]) {
                 cat(paste("label values ", toupper(j), paste(rep(" ", maxchars - nchar(j)), collapse=""), " LABELS_GROUP_", i, ifelse(SD == ";", " ;", ""), enter, sep=""))
             }
         }
@@ -1036,56 +1122,84 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                 "INFILE csvpath", enter,
                 "       DLM=", ifelse(delimiter == "\t", "'09'X", paste("\"", delimiter, "\"", sep="")), enter,
                 "       FIRSTOBS=2", enter,
-                # "       TERMSTR=&eol", enter,
+                #### "       TERMSTR=&eol", enter, #### line commented out
                 "       DSD", enter,
                 "       TRUNCOVER", enter,
                 "       LRECL=512", enter,
                 "       ;", enter, enter,
                 
-                "INPUT  ", sasformats[1], toupper(csvnames[1]), enter, sep="")
+                "INPUT  ", toupper(csvnames[1]), ifelse(sasformats[1] == "$", " $", ""), enter, sep="")
             
             for (i in seq(2, length(csvnames))) {
-                # cat("      ", sasformats[i], toupper(csvnames[i]), enter, sep="")
-                cat("      ", toupper(csvnames[i]), sasformats[i], enter)
+                cat("       ", toupper(csvnames[i]), ifelse(sasformats[i] == "$", " $", ""), enter, sep="")
             }
-            cat("       ;", enter)
+            cat("       ;", enter, sep="")
             cat("RUN;", enter, enter,
                 "* ------------------------------------------------------------------------------ ;", enter, enter, enter, sep="")
         }
         
         if (any(unlist(stringvars))) {
-            cat("* --- Recode string variables which have labels, to numeric variables ---        ;", enter, enter,
-                "DATA sasimport;", enter, enter,
-                "    SET sasimport;", enter, enter, sep="")
-            
+            cat("* --- Recode string variables which have labels, to numeric variables ---        ;", enter, enter, sep="")
+                
             for (i in names(stringvars)) {
                 if (stringvars[[i]]) {
+                    cat("DATA sasimport;", enter, enter,
+                        "    SET sasimport;", enter, enter, sep="")
+                    
                     x <- intrnlbls2$vallab[[i]]
                     vals <- seq(length(x))
                     names(vals) <- names(x)
                     for (j in seq(length(vals))) {
-                        cat("    IF (", i, " = '", x[j], "') THEN ", i, " = ", vals[j], ";", enter, sep="")
+                        cat("    IF (", i, " = '", x[j], "') THEN TEMPVAR = ", vals[j], ";", enter, sep="")
                     }
                     
-                    
-                    cat(enter, "    TEMPVAR = input(", i, ", best12.);", enter,
-                               "    DROP ", i, ";", enter,
-                               "    RENAME TEMPVAR = ", i, ";", enter, enter, sep="")
+                    cat(enter, "RUN;", enter, enter, "DATA sasimport;", enter, enter,
+                        "    SET sasimport;", enter, enter,
+                        "    DROP ", i, ";", enter,
+                        "    RENAME TEMPVAR = ", i, ";", enter, enter,
+                        "RUN;", enter, enter, sep="")
                     
                     intrnlbls2$vallab[[i]] <- vals
                 }
             }
             
-            cat("RUN;", enter, enter,
-                "* ------------------------------------------------------------------------------ ;", enter, enter, enter,
+            cat("* ------------------------------------------------------------------------------ ;", enter, enter, enter, sep="")
+        }
+        
+        
+        
+        
+        if (length(numerical_with_strings) > 0) {
+            
+            cat("* --- Force variables as numeric ---                                             ;", enter, enter, sep="")
+            
+            for (i in toupper(names(numerical_with_strings))) {
                 
-                "* --- Reorder the variables in the original positions ---                        ;", enter, enter,
+                cat("DATA sasimport;", enter, enter,
+                    "    SET sasimport;", enter, enter,
+                    "    TEMPVAR = INPUT(", i, ", ?? best.);", enter, enter,
+                    "RUN;", enter, enter, 
+                    "DATA sasimport;", enter, enter,
+                    "    SET sasimport;", enter, enter,
+                    "    DROP ", i, ";", enter,
+                    "    RENAME TEMPVAR = ", i, ";", enter, enter,
+                    "RUN;", enter, enter, sep="")
+            }
+            
+            cat("* ------------------------------------------------------------------------------ ;", enter, enter, enter, sep="")
+        }
+        
+        
+        if (any(unlist(stringvars)) | length(numerical_with_strings) > 0) {
+            cat("* --- Reorder the variables in their original positions ---                      ;", enter, enter,
                 "DATA sasimport;", enter, enter,
-                "    RETAIN ", gsub(",", "", splitrows(names(intrnlbls2$varlab), enter, 70, "           ")), ";", enter, enter,
+                "    RETAIN ", gsub(",", "", splitrows(toupper(names(intrnlbls2$varlab)), enter, 70, "           ")), ";", enter, enter,
                 "    SET sasimport;", enter, enter,
                 "RUN;", enter, enter,
                 "* ------------------------------------------------------------------------------ ;", enter, enter, enter, sep="")
         }
+        
+        
         
         cat("* --- Add variable labels ---                                                    ;", enter, enter,
             "DATA sasimport;", enter, enter,
@@ -1199,13 +1313,13 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                     x <- intrnlbls2$vallab[[i]]
                     vals <- seq(length(x))
                     names(vals) <- names(x)
-                    cat(i, " <- rdatafile[ , \"", i, "\"]", enter,
-                        "tempvar <- rep(NA, length(", i, "))", enter, enter, sep="")
+                    cat(toupper(i), " <- rdatafile[ , \"", toupper(i), "\"]", enter,
+                        "tempvar <- rep(NA, length(", toupper(i), "))", enter, enter, sep="")
                     for (j in seq(length(vals))) {
-                        cat("tempvar[", i, " == \"", x[j], "\"] <- ", vals[j], enter, sep="")
+                        cat("tempvar[", toupper(i), " == \"", x[j], "\"] <- ", vals[j], enter, sep="")
                     }
                     
-                    cat(enter, "rdatafile[ , \"", i, "\"] <- tempvar", enter, enter, sep="")
+                    cat(enter, "rdatafile[ , \"", toupper(i), "\"] <- tempvar", enter, enter, sep="")
                     
                     intrnlbls2$vallab[[i]] <- vals
                 }
@@ -1216,12 +1330,33 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                 enter, enter, enter, enter, sep="")
         }
         
+        
+        
+        if (length(numerical_with_strings) > 0) {
+            
+            cat("# --- Force variables as numeric ---", enter, enter, sep="")
+            
+            maxnchars <- max(nchar(names(numerical_with_strings)))
+            
+            for (i in toupper(names(numerical_with_strings))) {
+                cat("rdatafile[ , \"", i, "\"]", paste(rep(" ", maxnchars - nchar(i)), collapse=""),
+                    " <- suppressWarnings(as.numeric(rdatafile[ , \"", i, "\"]", "))", enter, sep="")
+            }
+            cat(enter, enter, enter,
+                "# ------------------------------------------------------------------------------",
+                enter, enter, enter, enter, sep="")
+        }
+        
+        
+        
         cat("# --- Set the variable labels attribute --- ", enter, enter,
             "attr(rdatafile, \"variable labels\") <- list(", enter, sep="")
-            
+        
+        maxnchars <- max(nchar(varnames))
+        
         for (i in varnames) {
             cat("\"", toupper(i), "\"",
-            paste(rep(" ", maxchars - nchar(i)), collapse=""),
+            paste(rep(" ", maxnchars - nchar(i)), collapse=""),
             " = \"", intrnlbls2$varlab[[i]][1], "\"",
             ifelse(i == varnames[length(varnames)], ")", ","),
             enter, sep="")
@@ -1234,9 +1369,10 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             enter, enter, enter, enter,
             "# --- Set the value labels attribute --- ", enter, enter,
             "attr(rdatafile, \"value labels\") <- vector(mode=\"list\", length=", length(uList), ")", enter, enter, sep="")
-            # "names(attr(rdatafile, \"value labels\")) <- c(", enter, 
-            # splitrows(paste("\"", uList, "\"", sep=""), enter, 80), enter,
-            # ")", enter, enter, sep="")
+            
+            ##### "names(attr(rdatafile, \"value labels\")) <- c(", enter, 
+            ##### splitrows(paste("\"", uList, "\"", sep=""), enter, 80), enter,
+            ##### ")", enter, enter, sep="")
         
         contor <- 1
         
@@ -1245,22 +1381,19 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             
             listelements <- ifelse(length(uniqueList[[i]]) == 1, contor, paste(contor, ":", contor + length(uniqueList[[i]]) - 1, sep=""))
             
-            cat("attr(rdatafile, \"value labels\")[", listelements, "] <- ", 
-                ifelse(length(uniqueList[[i]]) == 1, "list(c(", "rep(list(c("), enter,
+            cat("attr(rdatafile, \"value labels\")[", listelements, "] <- list(c(", enter,
                 paste(paste("    \"", names(intrnlbls2$vallab[[n]]), "\" =", sep=""),
                       intrnlbls2$vallab[[n]],
-                      collapse=paste(",", enter, sep="")),
-                sep="")
-            
-            cat(enter, ifelse(length(uniqueList[[i]]) == 1, "))", 
-                paste(")), ", length(uniqueList[[i]]), ")", sep="")), enter, enter,
+                      collapse=paste(",", enter, sep="")), enter,
+                "))", enter, enter,
                 "names(attr(rdatafile, \"value labels\"))[", listelements, "] <- ", sep="")
+            
             if (length(uniqueList[[i]]) == 1) {
-                cat("\"", uniqueList[[i]], "\"", enter, enter, sep="")
+                cat("\"", toupper(uniqueList[[i]]), "\"", enter, enter, sep="")
             }
             else {
                 cat("c(", enter, "    ",
-                    splitrows(paste("\"", uniqueList[[i]], "\"", sep=""), enter, 80, spacerep="    "), enter,
+                    splitrows(paste("\"", toupper(uniqueList[[i]]), "\"", sep=""), enter, 80, spacerep="    "), enter,
                     ")", enter, enter, sep="")
             }
             
@@ -1273,17 +1406,14 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             enter, enter, enter, enter, sep="")
         
         
-        printMISSING <- FALSE
-        printUNIQUE <- FALSE
+        checkMISSING <- rep(FALSE, 3)
         
-        if (is.data.frame(csv) & uniqueid != "") {
-            if (any(table(csv[, uniqueid]) > 1)) {
-                uniqueid <- ""
-                printUNIQUE <- TRUE
-            }
-        }
+        checkMISSING[1] <- is.data.frame(csv)
+        checkMISSING[2] <- !identical(miss, "")
+        checkMISSING[3] <- !identical(uniqueid, "")
         
-        if (!missing(miss) & uniqueid != "" & is.data.frame(csv)) {
+        if (all(checkMISSING)) {
+        # if (is.data.frame(csv) & uniqueid != "") {
             
             if (is.numeric(miss)) {
                 missvars <- lapply(intrnlbls2$vallab, function(x) !is.na(match(miss, x)))
@@ -1298,13 +1428,20 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                 names(missvals) <- names(intrnlbls2$vallab)[withmiss]
             }
             
+            uniqueid <- toupper(uniqueid)
+            
             if (length(missvals) > 0) {
+                
                 cat("# --- Set the missing values attribute --- ", enter, enter,
-                    "attr(rdatafile, \"unique id\") <- \"", uniqueid, "\"", enter, enter, sep="")
+                    "# only if the uniqueid variable really exists,", enter,
+                    "# and it has no duplicate or missing values", enter, enter,
+                    "if (\"", uniqueid, "\" %in% names(rdatafile)) {", enter,
+                    "    if (!any(duplicated(rdatafile[, \"", toupper(uniqueid), "\"]))) {", enter, enter,
+                    "        attr(rdatafile, \"unique id\") <- \"", toupper(uniqueid), "\"", enter, enter, sep="")
                     
                 for (i in seq(length(missvals))) {
                     values <- intrnlbls2$vallab[[names(missvals)[i]]]
-                    cat("# ", names(missvals)[i], enter, sep="")
+                    cat("        # ", toupper(names(missvals)[i]), enter, sep="")
                     
                     for (j in seq(length(missvals[[i]]))) {
                         
@@ -1316,31 +1453,29 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
                                            missvals[[i]][j],
                                            paste("c(", paste(missvals[[i]][j], collapse = ", "), ")", sep=""))
                         
-                        cat("attr(rdatafile, \"missing types\")$", names(missvals)[i],
+                        cat("        attr(rdatafile, \"missing types\")$", toupper(names(missvals)[i]),
                             "[[\"", names(values)[values == missvals[[i]][j]], "\"]] <- list(", enter,
-                            "values = ", testvals, ",", enter,
-                            "cases = sort(rdatafile$", uniqueid, "[rdatafile$", names(missvals)[i], 
+                            "        values = ", testvals, ",", enter,
+                            "        cases = sort(rdatafile$", toupper(uniqueid), "[rdatafile$", toupper(names(missvals)[i]),
                             ifelse(length(missvals[[i]][j]) == 1, " == ", " %in% "), testvals,  
-                            "])", enter, ")", enter, enter, sep="")
+                            "])", enter, "        )", enter, enter, sep="")
                     }
                     
                     # here, though, it is likely to have multiple missing values
                     # in the future, missvals[[i]] might be a list to accommodate for ranges
                     
-                    cat("rdatafile$", names(missvals)[i], "[rdatafile$", names(missvals)[i],
+                    cat("        rdatafile$", toupper(names(missvals)[i]), "[rdatafile$", toupper(names(missvals)[i]),
                         ifelse(length(unlist(missvals[[i]])) == 1, paste(" == ", unlist(missvals[[i]]), sep=""),
                                paste(" %in% c(", paste(unlist(missvals[[i]]), collapse = ", "), ")", sep="")), 
                         "] <- NA", enter, enter, sep="")
                 }
                 
-                cat(enter, enter,
+                cat("    }", enter, "}", enter, enter, enter, enter,
                 "# ------------------------------------------------------------------------------",
                 enter, enter, enter, enter, sep="")
             }
         }
-        else if (!missing(miss) & (uniqueid == "" | is.data.frame(csv))) {
-            printMISSING <- TRUE
-        }
+        
         
         cat("# --- Save the R data file --- ", enter, enter,
             "rfilename <- unlist(strsplit(basename(rdatapath), split=\"\\\\.\"))[1]", enter,
@@ -1354,7 +1489,7 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
             "rm(rfilename, rdatafile, csvpath, rdatapath", sep="")
         
         if (any(unlist(stringvars))) {
-            cat(", ", paste(names(stringvars)[unlist(stringvars)], collapse=", "), sep="")
+            cat(", tempvar, ", toupper(paste(names(stringvars)[unlist(stringvars)], collapse=", ")), sep="")
         }
         
         cat(")", enter, enter, enter,
@@ -1366,16 +1501,21 @@ setupfile <- function(lbls = "", type="all", csv = "", miss, uniqueid = "",
         # finish writing and close the .R file
         sink()
         
-        if (printUNIQUE) {
-            cat("    The uniqueid variabile is not unique.\n    Missing values not treated for the R setup file.\n\n")
-        }
-        else {
-            if (printMISSING & !pathIsFolder) {
-                # this would be printed on the screen
-                cat("    The \"csv\" and \"uniqueid\" arguments are both mandatory\n    to produce R missing values commands.\n\n")
+        if (any(checkMISSING)) {
+            if (!all(checkMISSING)) {
+                if (!checkMISSING[1]) {
+                    cat("    Data not found, check the \"csv\" argument or the \"data\" directory.\n")
+                }
+                if (!checkMISSING[2]) {
+                    cat("    The \"miss\" argument needs to be specified.\n")
+                }
+                if (!checkMISSING[3]) {
+                    cat("    The uniqueid variable has to be specified.\n")
+                }
+                cat("    Missing values not treated for the R setup file.\n\n")
             }
         }
-                
+        
         setwd(currentdir)
         
     }
